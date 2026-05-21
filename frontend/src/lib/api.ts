@@ -39,7 +39,8 @@ class ApiClient {
       headers,
     });
 
-    if (res.status === 401) {
+    const isPublicAuth = path === '/api/auth/login' || path === '/api/auth/signup' || path === '/api/auth/refresh';
+    if (res.status === 401 && !isPublicAuth) {
       const refreshed = await this.refreshToken();
       if (refreshed) {
         headers['Authorization'] = `Bearer ${this.getToken()}`;
