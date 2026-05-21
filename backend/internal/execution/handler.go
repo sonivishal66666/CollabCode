@@ -179,6 +179,7 @@ func (h *Handler) Execute(c *fiber.Ctx) error {
 			exitCode = exitError.ExitCode()
 		} else {
 			exitCode = 1
+			stderrBuf.WriteString(fmt.Sprintf("Execution error: %v", err))
 		}
 	}
 
