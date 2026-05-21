@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -13,6 +14,9 @@ func NewPostgresPool(databaseURL string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database URL: %w", err)
 	}
+
+	// Disable prepared statements for compatibility with Supabase Pooler (PgBouncer)
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	config.MaxConns = 20
 	config.MinConns = 2
