@@ -3,7 +3,19 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { WSMessage } from '@/types';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+const getWsUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+    }
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${window.location.host}/_/backend`;
+  }
+  return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+};
+
+const WS_URL = getWsUrl();
 
 interface UseWebSocketOptions {
   roomId: string;

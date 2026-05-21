@@ -1,4 +1,15 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    }
+    return `${window.location.origin}/_/backend`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+};
+
+const API_URL = getApiUrl();
 
 class ApiClient {
   private baseURL: string;
