@@ -4,18 +4,21 @@ A production-grade realtime collaborative coding and technical interview platfor
 
 ![CollabCode](https://img.shields.io/badge/CollabCode-Realtime%20Collaboration-8b5cf6?style=for-the-badge)
 
-## Architecture
+## 🏗️ Production Architecture
 
-- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS + Monaco Editor + Zustand + Framer Motion
-- **Backend**: Go + Fiber + WebSocket + OT Engine
-- **Database**: Supabase PostgreSQL (free tier)
-- **Cache**: Redis Cloud (free tier)
+CollabCode is architected as a high-performance, low-latency decoupled system:
+
+- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS + Monaco Editor + Zustand + Framer Motion (Hosted on **Vercel**)
+- **Backend**: Go + Fiber + WebSockets + OT Engine + Docker (Hosted on **Railway**)
+- **Database**: Supabase PostgreSQL + Transaction Connection Pooler
+- **Cache**: Redis Cloud (optional)
 - **Code Execution**: Local Execution Engine via Go `os/exec` (uses host machine's installed runtimes)
-- **Deployment**: Vercel (frontend) + Render (backend)
 
-## Features
+---
 
-### 💎 Ultra-Premium Collaborative Suite
+## 💎 Features
+
+### 🛠️ Ultra-Premium Collaborative Suite
 - 📹 **WebRTC Voice & Video Channels**: State-of-the-art, peer-to-peer audio and video calling integrated directly into the workspace. Utilizing WebSockets for signal routing, raw `RTCPeerConnection` for streams, and the **Web Audio API** with an `AnalyserNode` to drive beautiful dynamic glowing avatar borders for active speakers.
 - 🎨 **Glassmorphic Collaborative Whiteboard**: Real-time canvas drawings synced instantly across users. Features Pencil, Line, Rectangle, Circle, and Eraser, with customizable line thickness and palette matching, all synced over WebSocket.
 - ⏳ **Workspace "Time Machine"**: Step back in time to inspect any file's history. Includes a highly responsive sliding scrubber timeline and a side-by-side comparative diffing panel utilizing Monaco Editor's native high-performance `DiffEditor`.
@@ -27,7 +30,6 @@ A production-grade realtime collaborative coding and technical interview platfor
 - ⚡ **Interactive Input Fields & Focus States**: Color-coded neon focus highlighting (emerald for Display Name, cyan for Email, and violet for Password) plus custom animated password eye visibility toggles (`Eye`/`EyeOff`).
 - 💅 **Visual Excellence & Typography**: Modern glassmorphism overlays, double-layered premium gradient borders, and responsive hover-glowing outlines tailored for elite developers.
 - 🖊️ **Interactive Workspace Typing**: Real-time landing page placeholder typing simulator showing live editor entries for `"soni"` and `"vishal"`.
-
 
 ### 🚀 Core Platform Features
 - 🔐 **JWT Authentication**: Secure user login/signup with state-of-the-art token rotation.
@@ -44,76 +46,101 @@ A production-grade realtime collaborative coding and technical interview platfor
 - 💾 **Snapshot Versioning**: Save snapshot milestones of active workspace directories instantly.
 - 📊 **Redis Pub/Sub Scaling**: Modular infrastructure support for horizontal scaling across multiple servers.
 
-## Quick Start
+---
+
+## ⚙️ Production Hardening & Optimizations
+
+To ensure zero-downtime scalability and flawless real-time performance, CollabCode has been heavily optimized for cloud deployment:
+
+### 🔌 Vercel WebSocket Bypass
+*   **Problem**: Vercel's Serverless Edge and API Gateway layers filter out standard WebSocket handshake headers, returning `426 Upgrade Required`.
+*   **Solution**: The stateful Go WebSocket hub was decoupled and containerized via **Docker** to run on a persistent **Railway** instance. This enables continuous TCP upgrades, secure persistent sessions, and flawless message broadcasting.
+
+### 🔋 Supabase PgBouncer Simple Protocol
+*   **Problem**: PostgreSQL connection poolers (like PgBouncer / Supabase Pooler on transaction port `6543`) do not support prepared statements, throwing protocol errors when using dynamic parameter binding.
+*   **Solution**: Programmatically configured `pgx.QueryExecModeSimpleProtocol` in the Go database layer (`postgres.go`), ensuring safe and stable queries even under high concurrent load on the connection pooler port.
+
+### 🔗 Secure Protocol Cross-Origin Handshakes
+*   **Problem**: Mixed content blockages on the browser side when calling cross-origin backend systems.
+*   **Solution**: Built-in automated CORS negotiation using environment variables. The frontend dynamically resolves secure protocols (`https://` for REST API, and `wss://` for secure WebSockets) while gracefully falling back to same-origin matching for local developer sandboxes.
+
+---
+
+## 🚀 Quick Start & Local Setup
 
 ### Prerequisites
-
-To fully utilize the platform and code execution:
 - Go 1.22+
-- Node.js 20+ (for Frontend and JS/TS execution)
-- Python 3+ (for Python execution)
-- Java JDK (for Java execution)
-- GCC/G++ (for C++ execution)
+- Node.js 20+
 - A free [Supabase](https://supabase.com) project
 - (Optional) A free [Redis Cloud](https://redis.io/try-free/) instance
 
 ### 1. Setup Database
+1. Create a Supabase project.
+2. Open the SQL Editor in your Supabase dashboard.
+3. Copy and run the contents of [schema.sql](file:///c:/Users/visha/OneDrive/Desktop/Project/scripts/schema.sql) to set up all tables.
 
-1. Create a free Supabase project at [supabase.com](https://supabase.com)
-2. Open the SQL Editor in your Supabase dashboard
-3. Copy and paste the contents of `scripts/schema.sql`
-4. Run the SQL to create all tables
-
-### 2. Configure Environment
-
+### 2. Configure Local Environment
 ```bash
 # In the project root
 cp .env.example .env
 ```
 
-Edit `.env` with your values:
-```
+Edit your backend `.env` file:
+```env
 PORT=8080
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
-REDIS_URL=redis://default:[YOUR-PASSWORD]@[YOUR-HOST]:[YOUR-PORT]  # optional
 JWT_SECRET=your-secret-key-at-least-32-chars-long
 FRONTEND_URL=http://localhost:3000
 ```
 
-### 3. Start Backend
-
+### 3. Run Locally
+#### Start Go Backend
 ```bash
 cd backend
 go mod tidy
 go run ./cmd/server
 ```
+*API will run on `http://localhost:8080`*
 
-The API will start on `http://localhost:8080`
-
-### 4. Start Frontend
-
+#### Start Next.js Frontend
 ```bash
 cd frontend
-
-# Create frontend env file
+# Create frontend env variables for dev
 echo "NEXT_PUBLIC_API_URL=http://localhost:8080" > .env.local
 echo "NEXT_PUBLIC_WS_URL=ws://localhost:8080" >> .env.local
 
 npm install
 npm run dev
 ```
+*Frontend will run on `http://localhost:3000`*
 
-The frontend will start on `http://localhost:3000`
+---
 
-### 5. Open in Browser
+## 🚢 Production Deployment Setup
 
-1. Go to `http://localhost:3000`
-2. Create an account
-3. Create a room
-4. Share the room code with a friend
-5. Start coding together!
+### 1. Backend → Railway (Dockerized Go Service)
+1. Push your code to GitHub.
+2. Create a new service on **Railway** connected to your repository.
+3. Set the root directory of the build to `backend`.
+4. Railway will automatically detect the `Dockerfile` in `backend` and build the containerized service.
+5. In Railway **Settings**, scroll to **Networking** and click **Generate Domain** to get your public domain (e.g., `https://collabcode-production.up.railway.app`).
+6. Set the following environment variables on Railway:
+   * `DATABASE_URL`: Your Supabase pooler connection string (Port `6543`).
+   * `JWT_SECRET`: A secure random secret string.
+   * `FRONTEND_URL`: Your live Vercel domain (e.g., `https://collab-code-mocha.vercel.app`).
+   * `ENV`: `production`
 
-## Project Structure
+### 2. Frontend → Vercel (Next.js Application)
+1. Import your project repository in **Vercel**.
+2. Set the **Root Directory** to `frontend`.
+3. Add the following **Environment Variables** (replacing the example domain with your actual Railway domain):
+   * `NEXT_PUBLIC_API_URL` ➡️ `https://collabcode-production.up.railway.app` (No trailing slash)
+   * `NEXT_PUBLIC_WS_URL` ➡️ `wss://collabcode-production.up.railway.app` (No trailing slash)
+4. Click **Deploy**. Vercel will build and host your premium frontend experience globally.
+
+---
+
+## 📂 Project Structure
 
 ```
 collabcode/
@@ -147,9 +174,11 @@ collabcode/
 └── README.md
 ```
 
-## API Endpoints
+---
 
-### Auth
+## 📊 API & Endpoint Reference
+
+### Authentication
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/auth/signup` | Create account |
@@ -157,61 +186,10 @@ collabcode/
 | POST | `/api/auth/refresh` | Refresh token |
 | GET | `/api/auth/me` | Get current user |
 
-### Rooms
+### Room Management
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/rooms` | Create room |
-| GET | `/api/rooms` | List rooms |
-| GET | `/api/rooms/:id` | Get room details |
-| POST | `/api/rooms/join` | Join by code |
-| DELETE | `/api/rooms/:id` | Delete room |
-| POST | `/api/rooms/:id/snapshots` | Save code |
-| GET | `/api/rooms/:id/snapshots` | Get snapshots |
-
-### Execution
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/execute` | Execute code |
-| GET | `/api/execute/languages` | List languages |
-
-### WebSocket
-| Path | Description |
-|------|-------------|
-| `ws://host/ws/:roomId?token=JWT` | Join room |
-
-## Deployment
-
-### Frontend → Vercel
-1. Push to GitHub
-2. Import in Vercel
-3. Set root directory to `frontend`
-4. Add environment variables
-
-### Backend → Render
-1. Push to GitHub
-2. Create Web Service in Render
-3. Set root directory to `backend`
-4. Set build command: `go build -o server ./cmd/server`
-5. Set start command: `./server`
-6. Add environment variables
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend Framework** | Next.js 16 (Turbopack), React 19, TypeScript |
-| **Styling & Design** | HSL CSS Theme Engine, Glassmorphism, Tailwind CSS v4 |
-| **Multiplayer Sync** | WebSocket Hub (Go Fiber), Operational Transform (OT) Engine |
-| **Visual Annotations** | `useRemoteDecorations` Custom Hook, Monaco DeltaDecorations |
-| **Code Editor** | Monaco Editor (`@monaco-editor/react`) |
-| **Sensory Audio** | Programmatic Oscillator Synthesizer (Web Audio API) |
-| **Visual Effects** | Native HTML5 Canvas Particle Engine (Confetti) |
-| **Animations** | Spring Physics & Layout Staggering (Framer Motion) |
-| **State Management** | Zustand Store |
-| **Backend API** | Go, Fiber, WebSocket |
-| **Database** | Supabase PostgreSQL |
-| **Deployment** | Vercel (Frontend) + Render (Backend) |
-
 ## License
 
 MIT
