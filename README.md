@@ -12,7 +12,7 @@ CollabCode is architected as a high-performance, low-latency decoupled system:
 - **Backend**: Go + Fiber + WebSockets + OT Engine + Docker (Hosted on **Railway**)
 - **Database**: Supabase PostgreSQL + Transaction Connection Pooler
 - **Cache**: Redis Cloud (optional)
-- **Code Execution**: Local Execution Engine via Go `os/exec` (uses host machine's installed runtimes)
+- **Code Execution**: Multi-Language Sandboxed Execution Engine via Go `os/exec` (fully containerized with pre-installed runtimes)
 
 ---
 
@@ -151,7 +151,7 @@ collabcode/
 │   │   ├── chat/                   # Chat persistence
 │   │   ├── config/                 # Environment config
 │   │   ├── db/                     # PostgreSQL + Redis
-│   │   ├── execution/              # Local os/exec integration
+│   │   ├── execution/              # Sandbox os/exec runtimes integration
 │   │   ├── middleware/             # CORS, rate limiting, logging
 │   │   ├── models/                 # Data models
 │   │   ├── ot/                     # Operational Transform engine
