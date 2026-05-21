@@ -186,7 +186,7 @@ export function FileExplorer({ sendMessage }: FileExplorerProps) {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.15 }}
-              className={`flex items-center gap-1 pr-2 py-[3px] cursor-pointer group relative transition-all duration-150 ${
+              className={`flex items-center gap-1 pr-2 py-2.5 md:py-[3px] cursor-pointer group relative transition-all duration-150 ${
                 isActive
                   ? 'bg-accent-violet/12 text-accent-violet'
                   : 'text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
@@ -306,7 +306,7 @@ export function FileExplorer({ sendMessage }: FileExplorerProps) {
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="flex items-center gap-1 pr-2 py-[3px]"
+                      className="flex items-center gap-1 pr-2 py-2 md:py-[3px]"
                       style={{ paddingLeft: `${(level + 1) * 16 + 12}px` }}
                     >
                       <span className="w-3.5 shrink-0" />
@@ -339,7 +339,7 @@ export function FileExplorer({ sendMessage }: FileExplorerProps) {
   };
 
   return (
-    <div className="w-64 border-r border-border-default bg-bg-secondary flex flex-col shrink-0 select-none"
+    <div className="w-full md:w-64 border-r max-md:border-none border-border-default bg-bg-secondary flex flex-col shrink-0 select-none"
       onClick={() => setContextMenu(null)}
     >
       {/* Header */}
@@ -414,7 +414,7 @@ export function FileExplorer({ sendMessage }: FileExplorerProps) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-1 px-3 py-[3px]"
+            className="flex items-center gap-1 px-3 py-2 md:py-[3px]"
           >
             <span className="w-3.5 shrink-0" />
             {createTarget.mode === 'folder' ? (

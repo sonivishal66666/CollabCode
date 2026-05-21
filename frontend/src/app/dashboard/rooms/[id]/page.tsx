@@ -157,6 +157,41 @@ function triggerConfetti(canvas: HTMLCanvasElement, theme: string) {
   loop();
 }
 
+function InterviewTimer({ isInterview }: { isInterview: boolean }) {
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [time, setTime] = useState(0);
+  
+  useEffect(() => {
+    if (!timerRunning) return;
+    const interval = setInterval(() => setTime(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [timerRunning]);
+
+  if (!isInterview) return null;
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      onClick={() => {
+        setTimerRunning(!timerRunning);
+        audio.playClick();
+      }}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
+        timerRunning ? 'bg-accent-rose/10 text-accent-rose border border-accent-rose/20' : 'bg-bg-tertiary text-text-secondary'
+      }`}
+    >
+      <Timer className="w-3 h-3" />
+      {formatTime(time)}
+    </motion.button>
+  );
+}
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -169,19 +204,70 @@ export default function RoomPage() {
   const [showOutput, setShowOutput] = useState(false);
   const [copied, setCopied] = useState(false);
   const [stdinInput, setStdinInput] = useState('');
-  const [interviewTimer, setInterviewTimer] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
   const [messages, setMessages] = useState<Array<{ id: string; user_id: string; content: string; display_name: string; created_at: string }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [connected, setConnected] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [theme, setThemeState] = useState<'midnight' | 'cyberpunk' | 'tokyo-night' | 'dracula'>('midnight');
-  const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
-  const [, forceUpdate] = useState({});
+  
+  // Responsive States
+  const [activeMobileTab, setActiveMobileTab] = useState<'editor' | 'explorer' | 'chat' | 'whiteboard' | 'call'>('editor');
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => forceUpdate({}), 1000);
-    return () => clearInterval(timer);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Performance optimized Event-driven typing indicator tracking
+  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  const typingTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const triggerUserTyping = useCallback((userId: string) => {
+    setTypingUsers(prev => {
+      if (prev[userId]) return prev;
+      return { ...prev, [userId]: true };
+    });
+    
+    if (typingTimeouts.current[userId]) {
+      clearTimeout(typingTimeouts.current[userId]);
+    }
+    
+    typingTimeouts.current[userId] = setTimeout(() => {
+      setTypingUsers(prev => {
+        if (!prev[userId]) return prev;
+        return { ...prev, [userId]: false };
+      });
+    }, 2000);
+  }, []);
+
+  const triggerSelfTyping = useCallback(() => {
+    setTypingUsers(prev => {
+      if (prev.self) return prev;
+      return { ...prev, self: true };
+    });
+    
+    if (typingTimeouts.current.self) {
+      clearTimeout(typingTimeouts.current.self);
+    }
+    
+    typingTimeouts.current.self = setTimeout(() => {
+      setTypingUsers(prev => {
+        if (!prev.self) return prev;
+        return { ...prev, self: false };
+      });
+    }, 2000);
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    const timeouts = typingTimeouts.current;
+    return () => {
+      Object.values(timeouts).forEach(clearTimeout);
+    };
   }, []);
 
   useEffect(() => {
@@ -222,6 +308,18 @@ export default function RoomPage() {
     showWhiteboard, setShowWhiteboard, showTimeMachine, setShowTimeMachine, showVideoCall, setShowVideoCall,
     showCommandPalette, setShowCommandPalette, addRevision
   } = useEditorStore();
+
+  useEffect(() => {
+    if (!showWhiteboard && activeMobileTab === 'whiteboard') {
+      setActiveMobileTab('editor');
+    }
+  }, [showWhiteboard, activeMobileTab]);
+
+  useEffect(() => {
+    if (!showVideoCall && activeMobileTab === 'call') {
+      setActiveMobileTab('editor');
+    }
+  }, [showVideoCall, activeMobileTab]);
 
   const editorRef = useRef<unknown>(null);
   const [editorInstance, setEditorInstance] = useState<any>(null);
@@ -374,13 +472,6 @@ export default function RoomPage() {
 
     return () => clearOnlineUsers();
   }, [roomId, router, setLanguage, clearOnlineUsers]);
-
-  // Interview timer
-  useEffect(() => {
-    if (!timerRunning) return;
-    const interval = setInterval(() => setInterviewTimer(t => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, [timerRunning]);
   const handleWSMessageRef = useRef<(msg: WSMessage) => void>(undefined);
 
   const { sendMessage } = useWebSocket({
@@ -569,10 +660,7 @@ export default function RoomPage() {
         const payload = msg.payload as CursorData;
         updateUserCursor(payload.user_id, { ...payload, file_id: msg.file_id });
         if (payload.user_id) {
-          setTypingUsers(prev => ({
-            ...prev,
-            [payload.user_id]: Date.now()
-          }));
+          triggerUserTyping(payload.user_id);
         }
         break;
       }
@@ -634,10 +722,7 @@ export default function RoomPage() {
     if (isRemoteChange.current || value === undefined || !activeFileId) return;
     
     // Set self typing status
-    setTypingUsers(prev => ({
-      ...prev,
-      self: Date.now()
-    }));
+    triggerSelfTyping();
     
     updateFileContent(activeFileId, value);
     
@@ -854,80 +939,72 @@ export default function RoomPage() {
 
         <div className="flex items-center gap-1.5 relative z-10">
           {/* Interview timer */}
-          {room?.room.is_interview && (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setTimerRunning(!timerRunning)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                timerRunning ? 'bg-accent-rose/10 text-accent-rose border border-accent-rose/20' : 'bg-bg-tertiary text-text-secondary'
-              }`}
-            >
-              <Timer className="w-3 h-3" />
-              {formatTime(interviewTimer)}
-            </motion.button>
-          )}
+          <InterviewTimer isInterview={room?.room.is_interview || false} />
 
-          {/* Language selector */}
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="bg-bg-tertiary border border-border-default rounded-lg px-3 py-1.5 text-xs font-medium outline-none cursor-pointer hover:border-border-hover transition-colors"
-          >
-            {Object.entries(languageMap).map(([key]) => (
-              <option key={key} value={key} className="bg-bg-tertiary text-text-primary">{key.charAt(0).toUpperCase() + key.slice(1)}</option>
-            ))}
-          </select>
-
-          {/* Theme selector */}
-          <div className="flex items-center gap-1 bg-bg-tertiary border border-border-default rounded-lg px-2 py-1.5 hover:border-border-hover transition-all duration-200">
-            <Sparkles className="w-3.5 h-3.5 text-accent-violet animate-pulse shrink-0" />
+          {/* Desktop-only action group */}
+          <div className="hidden md:flex items-center gap-1.5">
+            {/* Language selector */}
             <select
-              value={theme}
-              onChange={(e) => changeTheme(e.target.value as any)}
-              className="bg-transparent text-xs font-medium outline-none cursor-pointer border-none text-text-primary py-0 pr-1 pl-0.5"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="bg-bg-tertiary border border-border-default rounded-lg px-3 py-1.5 text-xs font-medium outline-none cursor-pointer hover:border-border-hover transition-colors"
             >
-              <option value="midnight" className="bg-bg-tertiary text-text-primary">🌌 Midnight</option>
-              <option value="cyberpunk" className="bg-bg-tertiary text-text-primary">⚡ Cyberpunk</option>
-              <option value="tokyo-night" className="bg-bg-tertiary text-text-primary">🏮 Tokyo Night</option>
-              <option value="dracula" className="bg-bg-tertiary text-text-primary">🧛 Dracula</option>
+              {Object.entries(languageMap).map(([key]) => (
+                <option key={key} value={key} className="bg-bg-tertiary text-text-primary">{key.charAt(0).toUpperCase() + key.slice(1)}</option>
+              ))}
             </select>
+
+            {/* Theme selector */}
+            <div className="flex items-center gap-1 bg-bg-tertiary border border-border-default rounded-lg px-2 py-1.5 hover:border-border-hover transition-all duration-200">
+              <Sparkles className="w-3.5 h-3.5 text-accent-violet animate-pulse shrink-0" />
+              <select
+                value={theme}
+                onChange={(e) => changeTheme(e.target.value as any)}
+                className="bg-transparent text-xs font-medium outline-none cursor-pointer border-none text-text-primary py-0 pr-1 pl-0.5"
+              >
+                <option value="midnight" className="bg-bg-tertiary text-text-primary">🌌 Midnight</option>
+                <option value="cyberpunk" className="bg-bg-tertiary text-text-primary">⚡ Cyberpunk</option>
+                <option value="tokyo-night" className="bg-bg-tertiary text-text-primary">🏮 Tokyo Night</option>
+                <option value="dracula" className="bg-bg-tertiary text-text-primary">🧛 Dracula</option>
+              </select>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSaveSnapshot}
+              className="btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5"
+              title="Save snapshot"
+            >
+              <Save className="w-3.5 h-3.5" /> Save
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={copyRoomCode}
+              className="btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5 font-mono"
+            >
+              <AnimatePresence mode="wait">
+                {copied ? (
+                  <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    <Check className="w-3.5 h-3.5 text-accent-emerald" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                    <Copy className="w-3.5 h-3.5" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              #{room?.room.room_code}
+            </motion.button>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleSaveSnapshot}
-            className="btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5"
-            title="Save snapshot"
-          >
-            <Save className="w-3.5 h-3.5" /> Save
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={copyRoomCode}
-            className="btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5 font-mono"
-          >
-            <AnimatePresence mode="wait">
-              {copied ? (
-                <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                  <Check className="w-3.5 h-3.5 text-accent-emerald" />
-                </motion.div>
-              ) : (
-                <motion.div key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                  <Copy className="w-3.5 h-3.5" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            #{room?.room.room_code}
-          </motion.button>
-
-          {/* Online users */}
+          {/* Online users — responsive (always shown) */}
           <div className="flex items-center gap-1.5 ml-1 pl-2 border-l border-border-default">
             <div className="flex -space-x-1.5">
-              {Array.from(onlineUsers.values()).slice(0, 5).map((u) => {
-                const isTyping = typingUsers[u.user_id] && (Date.now() - typingUsers[u.user_id] < 2000);
+              {Array.from(onlineUsers.values()).slice(0, 3).map((u) => {
+                const isTyping = typingUsers[u.user_id];
                 return (
                   <motion.div
                     key={u.user_id}
@@ -950,7 +1027,7 @@ export default function RoomPage() {
               })}
               {/* Self */}
               {(() => {
-                const isSelfTyping = typingUsers.self && (Date.now() - typingUsers.self < 2000);
+                const isSelfTyping = typingUsers.self;
                 return (
                   <div
                     className={`w-7 h-7 rounded-full bg-gradient-to-br from-accent-emerald to-accent-cyan flex items-center justify-center text-[10px] font-bold text-white border-2 border-bg-primary relative transition-all duration-300 ${
@@ -964,72 +1041,158 @@ export default function RoomPage() {
                 );
               })()}
             </div>
-            <span className="text-xs text-text-muted font-medium">{onlineUsers.size + 1}</span>
+            <span className="text-xs text-text-muted font-medium hidden sm:inline">{onlineUsers.size + 1}</span>
           </div>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => { setShowVideoCall(!showVideoCall); audio.playClick(); }}
-            className={`p-2 rounded-lg transition-all ${showVideoCall ? 'bg-accent-cyan/10 text-accent-cyan' : 'hover:bg-white/5 text-text-secondary'}`}
-            title="Toggle Voice & Video Call"
-          >
-            <Video className="w-4 h-4" />
-          </motion.button>
+          {/* Desktop-only action icons */}
+          <div className="hidden md:flex items-center gap-1.5">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => { setShowVideoCall(!showVideoCall); audio.playClick(); }}
+              className={`p-2 rounded-lg transition-all ${showVideoCall ? 'bg-accent-cyan/10 text-accent-cyan' : 'hover:bg-white/5 text-text-secondary'}`}
+              title="Toggle Voice & Video Call"
+            >
+              <Video className="w-4 h-4" />
+            </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => { setShowWhiteboard(!showWhiteboard); audio.playClick(); }}
-            className={`p-2 rounded-lg transition-all ${showWhiteboard ? 'bg-accent-violet/10 text-accent-violet' : 'hover:bg-white/5 text-text-secondary'}`}
-            title="Toggle Collaborative Whiteboard"
-          >
-            <PenTool className="w-4 h-4" />
-          </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => { setShowWhiteboard(!showWhiteboard); audio.playClick(); }}
+              className={`p-2 rounded-lg transition-all ${showWhiteboard ? 'bg-accent-violet/10 text-accent-violet' : 'hover:bg-white/5 text-text-secondary'}`}
+              title="Toggle Collaborative Whiteboard"
+            >
+              <PenTool className="w-4 h-4" />
+            </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => { setShowTimeMachine(!showTimeMachine); audio.playClick(); }}
-            className={`p-2 rounded-lg transition-all ${showTimeMachine ? 'bg-accent-cyan/10 text-accent-cyan' : 'hover:bg-white/5 text-text-secondary'}`}
-            title="Toggle Workspace Time Machine"
-          >
-            <Clock className="w-4 h-4" />
-          </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => { setShowTimeMachine(!showTimeMachine); audio.playClick(); }}
+              className={`p-2 rounded-lg transition-all ${showTimeMachine ? 'bg-accent-cyan/10 text-accent-cyan' : 'hover:bg-white/5 text-text-secondary'}`}
+              title="Toggle Workspace Time Machine"
+            >
+              <Clock className="w-4 h-4" />
+            </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => { setShowCommandPalette(!showCommandPalette); audio.playClick(); }}
-            className={`p-2 rounded-lg transition-all ${showCommandPalette ? 'bg-accent-violet/10 text-accent-violet' : 'hover:bg-white/5 text-text-secondary'}`}
-            title="Toggle Command Palette (Ctrl+K)"
-          >
-            <Terminal className="w-4 h-4" />
-          </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => { setShowCommandPalette(!showCommandPalette); audio.playClick(); }}
+              className={`p-2 rounded-lg transition-all ${showCommandPalette ? 'bg-accent-violet/10 text-accent-violet' : 'hover:bg-white/5 text-text-secondary'}`}
+              title="Toggle Command Palette (Ctrl+K)"
+            >
+              <Terminal className="w-4 h-4" />
+            </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={toggleMute}
-            className={`p-2 rounded-lg transition-all ${!muted ? 'hover:bg-white/5 text-text-secondary' : 'bg-accent-rose/10 text-accent-rose'}`}
-            title={muted ? "Unmute Sounds" : "Mute Sounds"}
-          >
-            {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleMute}
+              className={`p-2 rounded-lg transition-all ${!muted ? 'hover:bg-white/5 text-text-secondary' : 'bg-accent-rose/10 text-accent-rose'}`}
+              title={muted ? "Unmute Sounds" : "Mute Sounds"}
+            >
+              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </motion.button>
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowChat(!showChat)}
-            className={`p-2 rounded-lg transition-all ${showChat ? 'bg-accent-violet/10 text-accent-violet' : 'hover:bg-white/5 text-text-secondary'}`}
-          >
-            <MessageSquare className="w-4 h-4" />
-          </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowChat(!showChat)}
+              className={`p-2 rounded-lg transition-all ${showChat ? 'bg-accent-violet/10 text-accent-violet' : 'hover:bg-white/5 text-text-secondary'}`}
+            >
+              <MessageSquare className="w-4 h-4" />
+            </motion.button>
+          </div>
+
+          {/* Premium Mobile Menu settings button */}
+          <div className="md:hidden relative">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => { setShowMobileSettings(!showMobileSettings); audio.playClick(); }}
+              className={`p-2 rounded-lg transition-all ${showMobileSettings ? 'bg-bg-tertiary text-accent-violet' : 'bg-bg-tertiary/50 border border-border-default text-text-secondary hover:text-text-primary'}`}
+            >
+              <Settings className="w-4 h-4" />
+            </motion.button>
+            
+            <AnimatePresence>
+              {showMobileSettings && (
+                <>
+                  <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setShowMobileSettings(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-bg-secondary/95 backdrop-blur-xl border border-border-default shadow-2xl p-2 z-50 flex flex-col gap-2"
+                  >
+                    <div className="px-3 py-1.5 border-b border-border-default/40">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">Workspace Settings</span>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1 px-2">
+                      <span className="text-[10px] text-text-muted font-medium">Language</span>
+                      <select
+                        value={language}
+                        onChange={(e) => { setLanguage(e.target.value); setShowMobileSettings(false); }}
+                        className="w-full bg-bg-tertiary border border-border-default rounded-lg px-2 py-1.5 text-xs font-medium outline-none cursor-pointer text-text-primary"
+                      >
+                        {Object.entries(languageMap).map(([key]) => (
+                          <option key={key} value={key} className="bg-bg-tertiary text-text-primary">{key.charAt(0).toUpperCase() + key.slice(1)}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1 px-2">
+                      <span className="text-[10px] text-text-muted font-medium">Theme</span>
+                      <select
+                        value={theme}
+                        onChange={(e) => { changeTheme(e.target.value as any); setShowMobileSettings(false); }}
+                        className="w-full bg-bg-tertiary border border-border-default rounded-lg px-2 py-1.5 text-xs font-medium outline-none cursor-pointer text-text-primary"
+                      >
+                        <option value="midnight">🌌 Midnight</option>
+                        <option value="cyberpunk">⚡ Cyberpunk</option>
+                        <option value="tokyo-night">🏮 Tokyo Night</option>
+                        <option value="dracula">🧛 Dracula</option>
+                      </select>
+                    </div>
+
+                    <div className="border-t border-border-default/40 my-1" />
+
+                    <button
+                      onClick={() => { handleSaveSnapshot(); setShowMobileSettings(false); }}
+                      className="w-full px-3 py-2 text-left text-xs font-medium rounded-lg hover:bg-white/5 text-text-secondary hover:text-text-primary flex items-center gap-2"
+                    >
+                      <Save className="w-3.5 h-3.5" /> Save Snapshot
+                    </button>
+
+                    <button
+                      onClick={() => { copyRoomCode(); setShowMobileSettings(false); }}
+                      className="w-full px-3 py-2 text-left text-xs font-medium rounded-lg hover:bg-white/5 text-text-secondary hover:text-text-primary flex items-center gap-2 font-mono"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-accent-emerald" /> : <Copy className="w-3.5 h-3.5" />}
+                      #{room?.room.room_code}
+                    </button>
+
+                    <button
+                      onClick={() => { toggleMute(); setShowMobileSettings(false); }}
+                      className="w-full px-3 py-2 text-left text-xs font-medium rounded-lg hover:bg-white/5 text-text-secondary hover:text-text-primary flex items-center gap-2"
+                    >
+                      {muted ? <VolumeX className="w-3.5 h-3.5 text-accent-rose" /> : <Volume2 className="w-3.5 h-3.5" />}
+                      {muted ? "Unmute Sounds" : "Mute Sounds"}
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
       {/* Main area */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 pb-16 md:pb-0">
         
         {/* File Explorer Sidebar */}
-        <FileExplorer sendMessage={sendMessage} />
+        <div className={`${activeMobileTab === 'explorer' ? 'flex w-full h-full' : 'hidden'} md:flex md:w-64 shrink-0`}>
+          <FileExplorer sendMessage={sendMessage} />
+        </div>
 
         {/* Editor + Output */}
-        <div className="flex-1 flex flex-col min-w-0 border-r border-border-default">
+        <div className={`${activeMobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col min-w-0 border-r border-border-default`}>
           <EditorTabs />
           
           {/* Editor */}
@@ -1055,11 +1218,11 @@ export default function RoomPage() {
                 }}
                 theme={`collabcode-${theme}`}
                 options={{
-                  fontSize: 14,
+                  fontSize: isMobile ? 12 : 14,
                   fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                   minimap: { enabled: false },
                   scrollBeyondLastLine: false,
-                  padding: { top: 16 },
+                  padding: { top: isMobile ? 8 : 16 },
                   lineNumbers: 'on',
                   renderLineHighlight: 'all',
                   bracketPairColorization: { enabled: true },
@@ -1071,7 +1234,7 @@ export default function RoomPage() {
                 }}
               />
             ) : (
-              <div className="h-full flex items-center justify-center text-text-muted select-none flex-col gap-4">
+              <div className="h-full flex items-center justify-center text-text-muted select-none flex-col gap-4 p-4 text-center">
                 <FileCode className="w-16 h-16 opacity-20" />
                 <p>Select a file from the explorer or create a new one to start coding.</p>
               </div>
@@ -1079,13 +1242,13 @@ export default function RoomPage() {
           </div>
 
           {/* Run bar — Premium */}
-          <div className="flex items-center gap-2 px-4 py-2 border-t border-border-default bg-bg-secondary/80 shrink-0 backdrop-blur-sm">
+          <div className="flex items-center gap-2 px-3 py-2 border-t border-border-default bg-bg-secondary/80 shrink-0 backdrop-blur-sm">
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleExecute}
               disabled={isExecuting}
-              className={`btn-primary text-xs flex items-center gap-1.5 px-5 py-2 ${isExecuting ? 'run-pulse' : ''}`}
+              className={`btn-primary text-xs flex items-center gap-1.5 px-4 py-2 shrink-0 ${isExecuting ? 'run-pulse' : ''}`}
             >
               {isExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               {isExecuting ? 'Running...' : 'Run'}
@@ -1094,15 +1257,15 @@ export default function RoomPage() {
               type="text"
               value={stdinInput}
               onChange={(e) => setStdinInput(e.target.value)}
-              placeholder="stdin input (optional)"
-              className="input-field text-xs py-2 flex-1 max-w-xs"
+              placeholder="stdin input"
+              className="input-field text-xs py-2 flex-1 min-w-0"
             />
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowOutput(!showOutput)}
-              className={`btn-ghost text-xs flex items-center gap-1.5 px-3 py-2 transition-all ${showOutput ? 'text-accent-violet bg-accent-violet/5' : ''}`}
+              className={`btn-ghost text-xs flex items-center gap-1 px-2.5 py-2 transition-all shrink-0 ${showOutput ? 'text-accent-violet bg-accent-violet/5' : ''}`}
             >
-              <Terminal className="w-3.5 h-3.5" /> Output
+              <Terminal className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Output</span>
               {executionResult && (
                 <span className={`w-1.5 h-1.5 rounded-full ${executionResult.exit_code === 0 ? 'bg-accent-emerald' : 'bg-accent-rose'}`} />
               )}
@@ -1114,12 +1277,12 @@ export default function RoomPage() {
             {showOutput && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 220, opacity: 1 }}
+                animate={{ height: isMobile ? 180 : 220, opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
                 className="border-t border-border-default bg-bg-secondary overflow-hidden shrink-0"
               >
-                <div className="h-full overflow-auto p-4">
+                <div className="h-full overflow-auto p-3">
                   {isExecuting ? (
                     <motion.div
                       initial={{ opacity: 0 }}
@@ -1130,7 +1293,7 @@ export default function RoomPage() {
                         <Loader2 className="w-5 h-5 animate-spin text-accent-violet" />
                         <div className="absolute inset-0 w-5 h-5 rounded-full bg-accent-violet/20 animate-ping" />
                       </div>
-                      <span>Executing your code...</span>
+                      <span>Executing code...</span>
                     </motion.div>
                   ) : executionResult ? (
                     <motion.div
@@ -1138,8 +1301,7 @@ export default function RoomPage() {
                       animate={{ opacity: 1, y: 0 }}
                       className="font-mono text-xs space-y-3"
                     >
-                      {/* Status badge */}
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
                         {executionResult.exit_code === 0 ? (
                           <span className="flex items-center gap-1.5 text-[11px] bg-accent-emerald/10 text-accent-emerald px-2 py-0.5 rounded-full font-semibold">
                             <Check className="w-3 h-3" /> Success
@@ -1152,15 +1314,15 @@ export default function RoomPage() {
                         <span className="text-text-muted text-[11px]">{executionResult.execution_time_ms}ms</span>
                       </div>
                       {executionResult.stdout && (
-                        <div className="bg-bg-primary/50 rounded-lg p-3 border border-border-subtle">
+                        <div className="bg-bg-primary/50 rounded-lg p-2.5 border border-border-subtle">
                           <span className="text-accent-emerald text-[10px] uppercase tracking-wider font-semibold">stdout</span>
-                          <pre className="mt-1.5 text-text-primary whitespace-pre-wrap leading-relaxed">{executionResult.stdout}</pre>
+                          <pre className="mt-1 text-text-primary whitespace-pre-wrap leading-relaxed break-all font-mono">{executionResult.stdout}</pre>
                         </div>
                       )}
                       {executionResult.stderr && (
-                        <div className="bg-accent-rose/5 rounded-lg p-3 border border-accent-rose/10">
+                        <div className="bg-accent-rose/5 rounded-lg p-2.5 border border-accent-rose/10">
                           <span className="text-accent-rose text-[10px] uppercase tracking-wider font-semibold">stderr</span>
-                          <pre className="mt-1.5 text-accent-rose/80 whitespace-pre-wrap leading-relaxed">{executionResult.stderr}</pre>
+                          <pre className="mt-1 text-accent-rose/80 whitespace-pre-wrap leading-relaxed break-all font-mono">{executionResult.stderr}</pre>
                         </div>
                       )}
                     </motion.div>
@@ -1168,7 +1330,7 @@ export default function RoomPage() {
                     <div className="h-full flex items-center justify-center">
                       <div className="text-center">
                         <Terminal className="w-8 h-8 text-text-muted/30 mx-auto mb-2" />
-                        <p className="text-text-muted text-sm">Click &quot;Run&quot; to execute your code</p>
+                        <p className="text-text-muted text-xs">Click &quot;Run&quot; to execute your code</p>
                       </div>
                     </div>
                   )}
@@ -1180,13 +1342,13 @@ export default function RoomPage() {
 
         {/* Chat panel — Enhanced */}
         <AnimatePresence>
-          {showChat && (
+          {((!isMobile && showChat) || (isMobile && activeMobileTab === 'chat')) && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 340, opacity: 1 }}
+              animate={{ width: isMobile ? '100%' : 340, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="border-l border-border-default bg-bg-secondary flex flex-col overflow-hidden shrink-0"
+              className="border-l max-md:border-none border-border-default bg-bg-secondary flex flex-col overflow-hidden shrink-0 h-full w-full md:w-[340px]"
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted flex items-center gap-2">
@@ -1195,7 +1357,13 @@ export default function RoomPage() {
                 </h3>
                 <motion.button
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => setShowChat(false)}
+                  onClick={() => {
+                    if (isMobile) {
+                      setActiveMobileTab('editor');
+                    } else {
+                      setShowChat(false);
+                    }
+                  }}
                   className="p-1 rounded hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -1220,7 +1388,7 @@ export default function RoomPage() {
                     transition={{ duration: 0.2, delay: i === messages.length - 1 ? 0 : 0 }}
                     className={`flex ${msg.user_id === user?.id ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className={`max-w-[80%] ${msg.user_id === user?.id ? 'items-end' : 'items-start'}`}>
+                    <div className={`max-w-[85%] ${msg.user_id === user?.id ? 'items-end' : 'items-start'}`}>
                       <div className={`rounded-2xl px-3.5 py-2 text-sm ${
                         msg.user_id === user?.id
                           ? 'bg-gradient-to-br from-accent-violet/20 to-accent-cyan/10 text-text-primary rounded-br-sm'
@@ -1265,6 +1433,48 @@ export default function RoomPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Mobile-only Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-bg-secondary/90 backdrop-blur-lg border-t border-border-default flex items-center justify-around px-2 z-30 shadow-[0_-5px_15px_rgba(0,0,0,0.1)]">
+        {[
+          { id: 'explorer', label: 'Files', icon: FileCode },
+          { id: 'editor', label: 'Editor', icon: Terminal },
+          { id: 'chat', label: 'Chat', icon: MessageSquare },
+          { id: 'whiteboard', label: 'Draw', icon: PenTool },
+          { id: 'call', label: 'Call', icon: Video },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeMobileTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveMobileTab(tab.id as any);
+                audio.playClick();
+                if (tab.id === 'whiteboard') {
+                  setShowWhiteboard(true);
+                } else if (tab.id === 'call') {
+                  setShowVideoCall(true);
+                }
+              }}
+              className="relative flex flex-col items-center justify-center flex-1 h-full py-1 text-text-secondary"
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="active-mobile-tab-bg"
+                  className="absolute inset-x-2 inset-y-1.5 bg-accent-violet/10 rounded-xl border border-accent-violet/20"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+              <Icon className={`w-5 h-5 mb-0.5 transition-colors relative z-10 ${isActive ? 'text-accent-violet' : 'text-text-muted hover:text-text-primary'}`} />
+              <span className={`text-[10px] font-medium transition-colors relative z-10 ${isActive ? 'text-accent-violet font-semibold' : 'text-text-muted'}`}>
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Dynamic Collaborative additions */}
       <CommandPalette
         onRunCode={handleExecute}

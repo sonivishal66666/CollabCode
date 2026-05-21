@@ -407,7 +407,7 @@ export function VideoCall({ sendMessage }: VideoCallProps) {
   if (!showVideoCall) return null;
 
   return (
-    <div className="fixed bottom-16 right-4 z-40 w-72 glass-panel neon-glow rounded-xl flex flex-col overflow-hidden border border-border-default bg-bg-glass backdrop-blur-xl">
+    <div className="fixed bottom-20 max-md:bottom-24 max-md:left-4 max-md:right-4 md:bottom-16 md:right-4 z-40 w-auto md:w-72 glass-panel neon-glow rounded-xl flex flex-col overflow-hidden border border-border-default bg-bg-glass backdrop-blur-xl">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-border-default bg-bg-secondary/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -420,9 +420,9 @@ export function VideoCall({ sendMessage }: VideoCallProps) {
       </div>
 
       {/* Video Streams Grid */}
-      <div className="p-3 grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto no-scrollbar bg-bg-primary/20">
+      <div className="p-3 grid grid-cols-2 md:grid-cols-1 gap-2 max-h-[30vh] md:max-h-[300px] overflow-y-auto no-scrollbar bg-bg-primary/20">
         {/* Local video card */}
-        <div className={`relative h-32 rounded-lg bg-bg-tertiary border transition-all overflow-hidden flex items-center justify-center ${
+        <div className={`relative h-24 md:h-32 rounded-lg bg-bg-tertiary border transition-all overflow-hidden flex items-center justify-center ${
           speakingUsers['self'] ? 'border-accent-emerald shadow-[0_0_12px_rgba(52,211,153,0.4)] scale-[0.98]' : 'border-border-default'
         }`}>
           {videoEnabled && localStream ? (
@@ -464,7 +464,7 @@ export function VideoCall({ sendMessage }: VideoCallProps) {
           return (
             <div
               key={peer.userId}
-              className={`relative h-32 rounded-lg bg-bg-tertiary border transition-all overflow-hidden flex items-center justify-center ${
+              className={`relative h-24 md:h-32 rounded-lg bg-bg-tertiary border transition-all overflow-hidden flex items-center justify-center ${
                 isSpeaking ? 'border-accent-cyan shadow-[0_0_12px_rgba(34,211,238,0.4)] scale-[0.98]' : 'border-border-default'
               }`}
             >

@@ -289,11 +289,11 @@ export function Whiteboard({ sendMessage }: WhiteboardProps) {
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      className="fixed inset-4 z-40 glass-panel neon-glow rounded-xl flex flex-col overflow-hidden border border-border-default bg-bg-primary/95 backdrop-blur-xl"
+      className="fixed inset-0 md:inset-4 z-40 glass-panel neon-glow md:rounded-xl flex flex-col overflow-hidden border max-md:border-none border-border-default bg-bg-primary/95 backdrop-blur-xl"
     >
       {/* Controls Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-default bg-bg-secondary/60 shrink-0">
-        <div className="flex items-center gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between px-4 py-3 border-b border-border-default bg-bg-secondary/60 shrink-0 gap-3">
+        <div className="flex flex-wrap items-center gap-4 md:gap-6">
           <div className="flex items-center gap-1.5 bg-bg-tertiary/60 border border-white/5 rounded-lg p-0.5">
             <button
               onClick={() => { setTool('pencil'); audio.playClick(); }}
@@ -367,24 +367,26 @@ export function Whiteboard({ sendMessage }: WhiteboardProps) {
         </div>
 
         {/* Clear & Save buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleDownload}
-            className="p-2 rounded-lg bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-white/5 border border-border-default transition-all flex items-center gap-1.5 text-xs font-medium"
-            title="Download drawing as PNG"
-          >
-            <Download className="w-3.5 h-3.5" /> Save Image
-          </button>
-          <button
-            onClick={handleClear}
-            className="p-2 rounded-lg bg-accent-rose/10 hover:bg-accent-rose/25 text-accent-rose transition-all flex items-center gap-1.5 text-xs font-medium"
-            title="Clear all drawings"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Clear
-          </button>
+        <div className="flex items-center justify-between md:justify-end gap-2 max-md:w-full">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="p-2 rounded-lg bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-white/5 border border-border-default transition-all flex items-center gap-1.5 text-xs font-medium"
+              title="Download drawing as PNG"
+            >
+              <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Save Image</span>
+            </button>
+            <button
+              onClick={handleClear}
+              className="p-2 rounded-lg bg-accent-rose/10 hover:bg-accent-rose/25 text-accent-rose transition-all flex items-center gap-1.5 text-xs font-medium"
+              title="Clear all drawings"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Clear</span>
+            </button>
+          </div>
           <button
             onClick={() => { setShowWhiteboard(false); audio.playPop(); }}
-            className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-all ml-2"
+            className="p-2 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-all md:ml-2"
           >
             <X className="w-4 h-4" />
           </button>
