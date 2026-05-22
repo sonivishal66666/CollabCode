@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Code2, LayoutDashboard, FolderCode, Plus, LogOut, Settings, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Code2, LayoutDashboard, FolderCode, Plus, LogOut, Settings, Users, Menu, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
@@ -18,6 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -43,10 +44,117 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isRoomPage = pathname.startsWith('/dashboard/rooms/') && !pathname.endsWith('/new');
 
   return (
-    <div className="min-h-screen flex bg-bg-primary">
-      {/* Sidebar */}
+    <div className="min-h-screen flex flex-col md:flex-row bg-bg-primary">
+      {/* Mobile Top Header */}
       {!isRoomPage && (
-        <aside className="w-64 border-r border-border-default flex flex-col glass-panel-strong shrink-0 relative overflow-hidden">
+        <header className="md:hidden h-16 border-b border-border-default bg-bg-secondary/80 backdrop-blur-md flex items-center justify-between px-4 z-40 shrink-0 relative">
+          <button
+            onClick={() => setIsOpen(true)}
+            className="p-1.5 rounded-lg hover:bg-white/5 text-text-secondary hover:text-text-primary transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <Code2 className="w-5 h-5 text-accent-cyan" />
+            <span className="text-[14px] font-extrabold tracking-wider bg-gradient-to-r from-white via-white to-text-secondary bg-clip-text text-transparent">
+              COLLABCODE
+            </span>
+          </div>
+
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-violet to-accent-cyan flex items-center justify-center text-xs font-bold text-white border border-white/10">
+            {user?.display_name?.charAt(0).toUpperCase() || 'U'}
+          </div>
+        </header>
+      )}
+
+      {/* Mobile Sliding Drawer */}
+      <AnimatePresence>
+        {!isRoomPage && isOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black/60 z-45 md:hidden"
+            />
+            {/* Drawer Panel */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="fixed top-0 bottom-0 left-0 w-72 bg-bg-secondary/95 backdrop-blur-xl border-r border-border-default/60 z-50 flex flex-col p-5 shadow-2xl md:hidden"
+            >
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-5 border-b border-border-default/40">
+                <div className="flex items-center gap-2">
+                  <Code2 className="w-5 h-5 text-accent-cyan" />
+                  <span className="text-sm font-extrabold tracking-wider text-white">COLLABCODE</span>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Navigation links */}
+              <nav className="flex-1 py-6 space-y-2">
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ${
+                        isActive
+                          ? 'bg-accent-violet/10 text-white border-l-2 border-accent-violet'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.01]'
+                      }`}
+                    >
+                      <item.icon className={`w-4.5 h-4.5 ${isActive ? 'text-accent-cyan' : 'text-text-secondary'}`} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {/* User and Logout */}
+              <div className="border-t border-border-default/40 pt-4">
+                <div className="flex items-center gap-3 mb-4 px-2 py-1.5 rounded-xl bg-white/[0.01] border border-white/[0.02]">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-violet to-accent-cyan flex items-center justify-center text-xs font-bold text-white shrink-0">
+                    {user?.display_name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-text-primary truncate">{user?.display_name || 'User'}</p>
+                    <p className="text-[10px] text-text-secondary truncate font-mono">{user?.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    logout();
+                    setIsOpen(false);
+                    router.push('/login');
+                  }}
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm font-medium text-text-secondary hover:text-white hover:bg-accent-rose/10 hover:border-accent-rose/30 border border-transparent transition-all duration-300"
+                >
+                  <LogOut className="w-4 h-4 text-text-secondary" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar (Desktop only) */}
+      {!isRoomPage && (
+        <aside className="hidden md:flex w-64 border-r border-border-default flex-col glass-panel-strong shrink-0 relative overflow-hidden">
           {/* Subtle Ambient Sidebar Orbs */}
           <div className="absolute -top-12 -left-12 w-24 h-24 bg-accent-violet/10 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute bottom-20 -right-12 w-24 h-24 bg-accent-cyan/10 rounded-full blur-2xl pointer-events-none" />

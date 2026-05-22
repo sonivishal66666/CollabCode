@@ -83,7 +83,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="p-8 relative min-h-[calc(100vh-4rem)] overflow-hidden bg-bg-primary">
+    <div className="p-4 md:p-8 relative min-h-[calc(100vh-4rem)] overflow-hidden bg-bg-primary">
       {/* Background Radial Ambient Orbs */}
       <div className="floating-orb w-[500px] h-[500px] bg-accent-violet/10 top-0 left-0 -translate-x-1/3 -translate-y-1/3 blur-[120px]" />
       <div className="floating-orb w-[500px] h-[500px] bg-accent-cyan/5 bottom-0 right-0 translate-x-1/4 translate-y-1/4 blur-[120px]" style={{ animationDelay: '-8s' }} />
