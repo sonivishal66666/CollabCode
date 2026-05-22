@@ -11,7 +11,6 @@ CollabCode is architected as a high-performance, low-latency decoupled system:
 - **Frontend**: Next.js 15 + TypeScript + Tailwind CSS + Monaco Editor + Zustand + Framer Motion (Hosted on **Vercel**)
 - **Backend**: Go + Fiber + WebSockets + OT Engine + Docker (Hosted on **Railway**)
 - **Database**: Supabase PostgreSQL + Transaction Connection Pooler
-- **Cache**: Redis Cloud (optional)
 - **Code Execution**: Multi-Language Sandboxed Execution Engine via Go `os/exec` (fully containerized with pre-installed runtimes)
 
 ---
