@@ -124,6 +124,14 @@ func main() {
 
 	// Register routes
 	api := app.Group("/api")
+	api.Use(func(c *fiber.Ctx) error {
+		if pgPool == nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "database connection is unconfigured. Please configure DATABASE_URL in your Railway dashboard.",
+			})
+		}
+		return c.Next()
+	})
 	authHandler.RegisterRoutes(api)
 	roomHandler.RegisterRoutes(api, authMiddleware)
 	chatHandler.RegisterRoutes(api, authMiddleware)
