@@ -30,8 +30,12 @@ func main() {
 	cfg, configErr := config.Load()
 	if configErr != nil {
 		log.Printf("⚠ Failed to load config: %v", configErr)
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
 		cfg = &config.Config{
-			Port:        "8080",
+			Port:        port,
 			Env:         "production",
 			DatabaseURL: "",
 			RedisURL:    "",

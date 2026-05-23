@@ -18,8 +18,8 @@ func NewPostgresPool(databaseURL string) (*pgxpool.Pool, error) {
 	// Disable prepared statements for compatibility with Supabase Pooler (PgBouncer)
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
-	config.MaxConns = 20
-	config.MinConns = 2
+	config.MaxConns = 4
+	config.MinConns = 1
 	config.MaxConnLifetime = 30 * time.Minute
 	config.MaxConnIdleTime = 5 * time.Minute
 	config.HealthCheckPeriod = 1 * time.Minute
