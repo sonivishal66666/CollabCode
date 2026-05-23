@@ -7,7 +7,8 @@ const getApiUrl = () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8080';
     }
-    return `${window.location.origin}/_/backend`;
+    // Production: point directly to Railway backend
+    return 'https://collabcode-production-103a.up.railway.app';
   }
   return 'http://localhost:8080';
 };

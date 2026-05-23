@@ -19,9 +19,14 @@ func SetupMiddleware(app *fiber.App, frontendURL string) {
 		TimeFormat: "2006-01-02 15:04:05",
 	}))
 
-	// CORS
+	// CORS - allow both configured frontend and production Vercel domain
+	allowedOrigins := frontendURL
+	prodOrigin := "https://collab-code-mocha.vercel.app"
+	if frontendURL != prodOrigin {
+		allowedOrigins = frontendURL + "," + prodOrigin
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     frontendURL,
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
 		AllowCredentials: true,

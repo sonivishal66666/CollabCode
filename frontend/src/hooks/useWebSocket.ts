@@ -12,8 +12,8 @@ const getWsUrl = () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'ws://localhost:8080';
     }
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${window.location.host}/_/backend`;
+    // Production: point directly to Railway backend over WSS
+    return 'wss://collabcode-production-103a.up.railway.app';
   }
   return 'ws://localhost:8080';
 };
