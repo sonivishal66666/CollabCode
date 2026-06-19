@@ -436,3 +436,123 @@ body[data-theme="dracula"] {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Premium Overhaul Additions */
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes border-rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.marquee-container {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.animated-border-container {
+  position: relative;
+  overflow: hidden;
+  padding: 1px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.animated-border-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 20%,
+    var(--color-accent-violet) 50%,
+    var(--color-accent-cyan) 80%,
+    transparent 100%
+  );
+  animation: border-rotate 6s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.animated-border-content {
+  position: relative;
+  z-index: 1;
+  background: var(--color-bg-secondary);
+  border-radius: inherit;
+  width: 100%;
+  height: 100%;
+}
+
+/* Mouse spotlight card effect */
+.spotlight-card {
+  position: relative;
+}
+
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 0) var(--mouse-y, 0),
+    rgba(255, 255, 255, 0.12),
+    transparent 40%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.spotlight-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    800px circle at var(--mouse-x, 0) var(--mouse-y, 0),
+    rgba(139, 92, 246, 0.05),
+    transparent 50%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Text balance utility */
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Particle element */
+.particle-element {
+  position: absolute;
+  border-radius: 50%;
+  background-color: var(--color-accent-cyan);
+  pointer-events: none;
+  opacity: 0.15;
+  will-change: transform, opacity;
+}
+

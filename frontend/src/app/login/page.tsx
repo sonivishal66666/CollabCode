@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,133 @@ import {
   Sparkles, ArrowLeft, Terminal, ShieldAlert 
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+
+// Dynamic HTML5 Parallax Particle Canvas Component
+function ParticleBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const particles: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      radius: number;
+      alpha: number;
+      baseAlpha: number;
+    }> = [];
+
+    const numParticles = Math.min(Math.floor((width * height) / 15000), 50);
+
+    for (let i = 0; i < numParticles; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        radius: Math.random() * 1.5 + 0.5,
+        alpha: Math.random() * 0.4 + 0.1,
+        baseAlpha: Math.random() * 0.4 + 0.1,
+      });
+    }
+
+    let mouseX = 0;
+    let mouseY = 0;
+    let active = false;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      active = true;
+    };
+
+    const handleMouseLeave = () => {
+      active = false;
+    };
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('resize', handleResize);
+
+    const animate = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        if (active) {
+          const dx = mouseX - p.x;
+          const dy = mouseY - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 180) {
+            const force = (180 - dist) / 180;
+            p.x -= (dx / dist) * force * 1.2;
+            p.y -= (dy / dist) * force * 1.2;
+            p.alpha = Math.min(p.baseAlpha + force * 0.4, 0.8);
+          } else {
+            p.alpha = p.baseAlpha;
+          }
+        } else {
+          p.alpha = p.baseAlpha;
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(34, 211, 238, ${p.alpha})`;
+        ctx.fill();
+
+        particles.forEach((other) => {
+          if (p === other) return;
+          const dx = p.x - other.x;
+          const dy = p.y - other.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 95) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.strokeStyle = `rgba(139, 92, 246, ${0.04 * (1 - dist / 95)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        });
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0" />;
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -31,9 +158,9 @@ export default function LoginPage() {
     const x = e.clientX - box.left - box.width / 2;
     const y = e.clientY - box.top - box.height / 2;
     
-    // Smooth 3D tilt calculation (12 degree cap)
-    setRotateX(-y / (box.height / 2) * 12);
-    setRotateY(x / (box.width / 2) * 12);
+    // Smooth 3D tilt calculation (10 degree cap)
+    setRotateX(-y / (box.height / 2) * 10);
+    setRotateY(x / (box.width / 2) * 10);
   };
 
   const handleMouseLeave = () => {
@@ -59,6 +186,9 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#050508] py-12 px-4 overflow-hidden selection:bg-accent-violet/30 selection:text-white">
       
+      {/* HTML5 Particle Parallax Canvas */}
+      <ParticleBackground />
+
       {/* 3D Cyberpunk Grid Layer */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#111119_1px,transparent_1px),linear-gradient(to_bottom,#111119_1px,transparent_1px)] bg-[size:4rem_4rem] [perspective:500px] [transform-style:preserve-3d] [transform:rotateX(60deg)_translateY(-150px)] opacity-20 pointer-events-none" />
 
@@ -73,7 +203,7 @@ export default function LoginPage() {
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="absolute top-1/4 left-1/4 w-[450px] h-[450px] bg-gradient-to-tr from-accent-violet/15 to-purple-600/5 rounded-full blur-[140px] pointer-events-none" 
+        className="absolute top-1/4 left-1/4 w-[450px] h-[450px] bg-gradient-to-tr from-accent-violet/15 to-purple-600/5 rounded-full blur-[140px] pointer-events-none z-0" 
       />
       <motion.div 
         animate={{
@@ -85,14 +215,14 @@ export default function LoginPage() {
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-gradient-to-tr from-accent-cyan/10 to-blue-500/5 rounded-full blur-[120px] pointer-events-none" 
+        className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-gradient-to-tr from-accent-cyan/10 to-blue-500/5 rounded-full blur-[120px] pointer-events-none z-0" 
       />
 
       {/* Nav corner buttons */}
       <div className="absolute top-6 left-6 z-50">
         <Link 
           href="/" 
-          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-white transition-all bg-white/[0.02] border border-white/[0.04] px-4 py-2 rounded-xl backdrop-blur-md"
+          className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-secondary hover:text-white hover:scale-102 active:scale-98 transition-all bg-white/[0.02] border border-white/[0.04] px-4 py-2 rounded-xl backdrop-blur-md"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Back Home
         </Link>
@@ -189,7 +319,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 text-sm bg-black/40 border border-white/[0.06] rounded-xl text-white placeholder-text-muted/40 focus:outline-none focus:border-accent-cyan focus:ring-1 focus:ring-accent-cyan/20 transition-all duration-300 font-medium"
+                  className="w-full pl-10 pr-4 py-3 text-sm bg-black/40 border border-white/[0.06] rounded-xl text-white placeholder-text-muted/40 focus:outline-none focus:border-accent-cyan focus:ring-2 focus:ring-accent-cyan/20 focus:shadow-[0_0_15px_rgba(34,211,238,0.12)] transition-all duration-300 font-medium"
                   placeholder="you@example.com"
                   required
                 />
@@ -213,7 +343,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-11 py-3 text-sm bg-black/40 border border-white/[0.06] rounded-xl text-white placeholder-text-muted/40 focus:outline-none focus:border-accent-violet focus:ring-1 focus:ring-accent-violet/20 transition-all duration-300 font-medium"
+                  className="w-full pl-10 pr-11 py-3 text-sm bg-black/40 border border-white/[0.06] rounded-xl text-white placeholder-text-muted/40 focus:outline-none focus:border-accent-violet focus:ring-2 focus:ring-accent-violet/20 focus:shadow-[0_0_15px_rgba(139,92,246,0.12)] transition-all duration-300 font-medium"
                   placeholder="••••••••"
                   required
                   minLength={8}
@@ -232,10 +362,12 @@ export default function LoginPage() {
             </div>
 
             {/* Premium Submit Button */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.015 }}
+              whileTap={{ scale: 0.985 }}
               type="submit"
               disabled={loading}
-              className="w-full mt-6 relative group/btn overflow-hidden rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider text-white transition-all duration-300 disabled:opacity-65"
+              className="w-full mt-6 relative group/btn overflow-hidden rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider text-white transition-all duration-300 disabled:opacity-65 cursor-pointer"
             >
               {/* Dynamic shining background gradient shift */}
               <div className="absolute inset-0 bg-gradient-to-r from-accent-violet via-accent-cyan to-accent-violet bg-[size:200%_auto] group-hover/btn:animate-gradient-shift transition-all" />
@@ -251,7 +383,7 @@ export default function LoginPage() {
                   </>
                 )}
               </span>
-            </button>
+            </motion.button>
           </form>
 
           {/* Footer Navigation */}
